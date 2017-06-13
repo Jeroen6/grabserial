@@ -87,6 +87,7 @@ options:
     -f, --force-reset      Force pyserial to reset device parameters
     -e, --endtime=<secs>   End the program after the specified seconds have
                            elapsed.
+    -a,                    Restart the program after -e time ends.                           
     -c, --command=<cmd>    Send a command to the port before reading
     -t, --time             Print time for each line received.  The time is
                            when the first character of each line is
@@ -103,11 +104,11 @@ options:
     -q, --quitpat=<pat>    Specify a regular expression pattern to end the
                            program.  Works mid-line.
     -l, --launchtime       Set base time from launch of program.
-    -o, --output=<name>    Output data to the named file.
+    -o,                    Output data to a iso8601 named file. 2017-06-13T06:36:02.623503
     -v, --verbose          Show verbose runtime messages
     -V, --version          Show version number and exit
     -S, --skip             Skip sanity checking of the serial device.
-                           May be needed for some devices.
+                           May be needed for some devices.                           
 
 Ex: %s -e 30 -t -m "^Linux version.*"
 This will grab serial input for 30 seconds, displaying the time for
@@ -165,7 +166,7 @@ def grab(arglist, outputfd=sys.stdout):
 				"systime",
 				"match=",
 				"endtime=",
-				"output=",
+				"again"
 				"verbose",
 				"version",
 				"quitpat=",
@@ -195,6 +196,7 @@ def grab(arglist, outputfd=sys.stdout):
 	basetime = 0
 	instanttime = None
 	endtime = 0
+	runagain = True
 	outputfile = None
 	command = ""
 	skip_device_check = 0
@@ -277,8 +279,10 @@ def grab(arglist, outputfd=sys.stdout):
 				print("Error: invalid endtime %s specified" % arg)
 				sd.close()
 				sys.exit(3)
-		if opt in ["-o", "--output"]:
-			outputfile = arg
+		if opt in ["-a", "--again"]:
+			runagain = True
+		if opt in ["-o"]:
+			outputfile = datetime.datetime.now().isoformat()
 		if opt in ["-v", "--verbose"]:
 			verbose=1
 		if opt in ["-V", "--version"]:
@@ -306,6 +310,8 @@ def grab(arglist, outputfd=sys.stdout):
 		vprint("Instant pattern '%s' to exit program" % quitpat)
 	if skip_device_check:
 		vprint("Skipping check of serial device")
+	if runagain:
+		vprint("Restarting on time expire")
 	if outputfile:
 		try:
 			out = open(outputfile, "wb")
@@ -355,6 +361,10 @@ def grab(arglist, outputfd=sys.stdout):
 
 			# see if we're supposed to stop yet
 			if endtime and time.time()>endtime:
+				if runagain:
+					print("Restarting\n")
+					os.execv(__file__, sys.argv)
+				print("Time\n")
 				break
 
 			# if we didn't read anything, loop
